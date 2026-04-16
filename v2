@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mechanical Tamagotchi: Evolution Streak</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow: hidden;
+        }
+
+        .pixel-font {
+            font-family: 'Press+Start+2P', cursive;
+        }
+
+        .game-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        .left-panel {
+            flex: 1;
+            padding: 2.5rem;
+            border-right: 4px solid #1e293b;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .right-panel {
+            width: 420px;
+            background: #1e293b;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            position: relative;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        .pet-stage {
+            font-size: 8rem;
+            filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.5));
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            user-select: none;
+        }
+
+        .bounce {
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .shake {
+            animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+            40%, 60% { transform: translate3d(6px, 0, 0); }
+        }
+
+        .stat-bar {
+            height: 14px;
+            background: #0f172a;
+            border-radius: 7px;
+            overflow: hidden;
+            width: 100%;
+            border: 1px solid #334155;
+        }
+
+        .stat-fill {
+            height: 100%;
+            transition: width 0.4s ease;
+        }
+
+        .evolution-overlay {
+            position: absolute;
+            inset: 0;
+            background: white;
+            z-index: 100;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            color: black;
+            font-family: 'Press Start 2P';
+            text-align: center;
+        }
+
+        .question-card {
+            background: #1e293b;
+            border: 2px solid #334155;
+            border-radius: 24px;
+            padding: 2.5rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .option-btn {
+            width: 100%;
+            text-align: left;
+            padding: 1.25rem;
+            background: #334155;
+            border: 2px solid #475569;
+            border-radius: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin-bottom: 0.75rem;
+        }
+
+        .option-btn:hover:not(:disabled) {
+            background: #475569;
+            border-color: #3b82f6;
+            transform: translateX(8px);
+        }
+
+        .option-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+    </style>
+</head>
+<body class="pixel-text">
+
+    <div class="game-container">
+        <!-- LEFT: THE LABORATORY (SINGLE QUESTION VIEW) -->
+        <div class="left-panel">
+            <div class="mb-8 max-w-[600px] mx-auto w-full flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-blue-400">MECHANICAL LAB</h1>
+                    <p class="text-slate-500 text-xs uppercase tracking-widest">Question <span id="current-q-num">1</span> / 30</p>
+                </div>
+                <div class="text-right">
+                    <span id="form-level" class="text-[10px] bg-blue-900/50 text-blue-300 px-3 py-1 rounded-full border border-blue-500/30 uppercase font-bold">Form 1/10</span>
+                </div>
+            </div>
+
+            <div id="question-container" class="question-card">
+                <div id="q-category" class="text-blue-400 text-[10px] mb-2 uppercase font-bold tracking-widest">System Check</div>
+                <h2 id="q-text" class="text-xl md:text-2xl font-bold mb-8 leading-tight">Loading synthesis node...</h2>
+                <div id="q-options" class="space-y-1"></div>
+                
+                <div id="feedback-area" class="hidden mt-6 p-4 rounded-xl text-center font-bold animate-pulse"></div>
+                
+                <button id="next-btn" class="hidden mt-6 w-full bg-blue-600 p-4 rounded-xl font-bold uppercase text-sm shadow-lg hover:bg-blue-500 transition">
+                    Continue Synthesis
+                </button>
+            </div>
+
+            <div id="final-screen" class="hidden text-center">
+                <h2 class="text-3xl font-bold text-blue-400 mb-4">SYNTHESIS COMPLETE</h2>
+                <p id="final-report" class="text-slate-400 mb-8"></p>
+                <button onclick="location.reload()" class="bg-slate-700 px-8 py-3 rounded-xl uppercase text-xs font-bold border border-slate-600">Reboot System</button>
+            </div>
+        </div>
+
+        <!-- RIGHT: THE PET -->
+        <div class="right-panel">
+            <div class="absolute top-8 left-8 right-8 space-y-6">
+                <div>
+                    <div class="flex justify-between text-[10px] mb-2 uppercase font-bold text-slate-400 tracking-widest">
+                        <span>Mechanical Integrity (HP)</span>
+                        <span id="health-text">100%</span>
+                    </div>
+                    <div class="stat-bar"><div id="health-fill" class="stat-fill bg-green-500" style="width: 100%"></div></div>
+                </div>
+                <div class="flex gap-2">
+                    <div id="streak-dot-1" class="h-3 w-3 rounded-full bg-slate-700 transition-colors"></div>
+                    <div id="streak-dot-2" class="h-3 w-3 rounded-full bg-slate-700 transition-colors"></div>
+                    <div id="streak-dot-3" class="h-3 w-3 rounded-full bg-slate-700 transition-colors"></div>
+                    <span class="text-[10px] text-slate-500 uppercase ml-2">Evolution Sync</span>
+                </div>
+            </div>
+
+            <div id="pet-display" class="pet-stage bounce">🥚</div>
+            <div id="pet-name" class="mt-8 pixel-font text-[10px] text-blue-300 text-center tracking-tighter">DATA EGG</div>
+            
+            <div class="mt-4 text-center">
+                <p id="pet-mood" class="text-xs text-slate-500 italic px-4">"Analyzing initial parameters..."</p>
+            </div>
+
+            <div class="absolute bottom-8 text-center text-[9px] text-slate-600 uppercase tracking-[0.2em] font-bold">
+                Bio-Mechanical Interface v2.0
+            </div>
+        </div>
+    </div>
+
+    <div id="evo-overlay" class="evolution-overlay">
+        <div>
+            <div class="text-6xl mb-6">⚙️</div>
+            <div class="text-2xl mb-2">EVOLUTION TRIGGERED!</div>
+            <div id="evo-form-name" class="text-sm mt-2 opacity-70">UPGRADING SUBSYSTEMS...</div>
+        </div>
+    </div>
+
+    <script>
+        const pool = [
+            { cat: "History", q: "Ancient spiral tool for lifting water?", a: "Archimedes' Screw", opts: ["Siphon", "Archimedes' Screw", "Lever", "Pulley"] },
+            { cat: "Math", q: "Work = Force x ______", a: "Distance", opts: ["Speed", "Time", "Distance", "Mass"] },
+            { cat: "Fluids", q: "Systems using compressed AIR?", a: "Pneumatic", opts: ["Hydraulic", "Pneumatic", "Static", "Magnetic"] },
+            { cat: "Systems", q: "Smaller parts of a complex machine?", a: "Subsystems", opts: ["Elements", "Subsystems", "Fragments", "Bolts"] },
+            { cat: "Math", q: "Formula for Mechanical Advantage?", a: "Output Force / Input Force", opts: ["Input/Output", "Output/Input", "Force x Distance", "Speed x Time"] },
+            { cat: "Fluids", q: "Pascal's Law states pressure moves...", a: "In all directions", opts: ["Downwards", "Towards gravity", "In all directions", "To the left"] },
+            { cat: "History", q: "Early aircraft relied on scientific knowledge and...", a: "Trial and Error", opts: ["Magic", "Trial and Error", "Computers", "Luck"] },
+            { cat: "Systems", q: "Transfers motion between machine parts?", a: "Linkage", opts: ["Insulator", "Linkage", "Resistor", "Anchor"] },
+            { cat: "Math", q: "Unit of Work in Joules?", a: "Joule", opts: ["Watt", "Newton", "Joule", "Pascal"] },
+            { cat: "Fluids", q: "Pressure = Force / _______", a: "Area", opts: ["Volume", "Area", "Time", "Mass"] },
+            { cat: "History", q: "Device with buckets on a wheel?", a: "Persian Wheel", opts: ["Persian Wheel", "Archimedes' Screw", "Hydraulic Jack", "Gear Train"] },
+            { cat: "Systems", q: "Primary energy source for a stapler?", a: "Human muscle", opts: ["Electricity", "Human muscle", "Gravity", "Gasoline"] },
+            { cat: "Math", q: "If MA is 5, how much force to lift 50N?", a: "10 N", opts: ["250 N", "10 N", "5 N", "100 N"] },
+            { cat: "Fluids", q: "Standard unit for Pressure?", a: "Pascal", opts: ["Newton", "Joule", "Pascal", "Watt"] },
+            { cat: "Society", q: "Recycling machine parts reduces...", a: "Waste", opts: ["Efficiency", "Waste", "Speed", "Friction"] },
+            { cat: "Systems", q: "Control subsystem in a car?", a: "Steering", opts: ["Engine", "Steering", "Tires", "Lights"] },
+            { cat: "Math", q: "Ratio of output distance to input distance?", a: "Speed Ratio", opts: ["MA", "Speed Ratio", "Work", "Torque"] },
+            { cat: "Fluids", q: "Why use hydraulics for heavy lifts?", a: "Liquids are incompressible", opts: ["They are lighter", "Liquids are incompressible", "They are cheaper", "They move faster"] },
+            { cat: "History", q: "Common need met by lifts over time?", a: "Moving Materials", opts: ["Heating water", "Moving Materials", "Creating light", "Sending mail"] },
+            { cat: "Society", q: "Measuring a machine's output vs input?", a: "Efficiency", opts: ["Beauty", "Weight", "Efficiency", "Reliability"] },
+            { cat: "Systems", q: "Gears used to change speed/force?", a: "Gear Train", opts: ["Lever", "Gear Train", "Pulley", "Incline"] },
+            { cat: "Math", q: "Standard unit for Force?", a: "Newton", opts: ["Gram", "Newton", "Watt", "Joule"] },
+            { cat: "Fluids", q: "Piston A is 1cm, Piston B is 10cm. Advantage?", a: "Large", opts: ["Small", "None", "Large", "Zero"] },
+            { cat: "History", q: "Which replaced the mill wheel?", a: "Electric Motors", opts: ["Horses", "Electric Motors", "Manual labor", "Steam"] },
+            { cat: "Society", q: "Primary focus of technological ethics?", a: "Impact on Environment", opts: ["Speed", "Color", "Impact on Environment", "Cost"] },
+            { cat: "Systems", q: "Connects a motor to a pulley?", a: "Belt", opts: ["Wire", "Belt", "Glue", "Magnet"] },
+            { cat: "Math", q: "Real MA is always lower due to...", a: "Friction", opts: ["Gravity", "Friction", "Air", "Time"] },
+            { cat: "Fluids", q: "Hydraulic jacks are common in...", a: "Car repair", opts: ["Cooking", "Car repair", "Sewing", "Music"] },
+            { cat: "Society", q: "Evaluating a design for reliability?", a: "Design Criteria", opts: ["Marketing", "Design Criteria", "Guessing", "Coloring"] },
+            { cat: "Systems", q: "Simple machine used in scissors?", a: "Lever", opts: ["Lever", "Screw", "Hydraulic", "Pneumatic"] }
+        ];
+
+        const evolutionStages = [
+            { name: "DATA EGG", emoji: "🥚", mood: "Waiting for valid inputs..." },
+            { name: "BRASS SPARK", emoji: "🐣", mood: "Initial mechanical life detected." },
+            { name: "GEAR MOUSE", emoji: "🐭", mood: "Scurrying through logic gates." },
+            { name: "PIVOT BOT", emoji: "🤖", mood: "Executing basic motor functions." },
+            { name: "LINKAGE DRONE", emoji: "🚁", mood: "Monitoring classroom efficiency." },
+            { name: "HYDRA-HOUND", emoji: "🐕", mood: "Pressure systems at 80% capacity." },
+            { name: "STEAM REAPER", emoji: "⚔️", mood: "Harvesting thermodynamic energy." },
+            { name: "PNEUMA-KNIGHT", emoji: "🛡️", mood: "Protecting the laws of physics." },
+            { name: "TITAN TURBINE", emoji: "🦾", mood: "Unstoppable mechanical force." },
+            { name: "ULTIMATE OVERSEER", emoji: "👑", mood: "MASTERY OF MECHANICAL SYSTEMS." }
+        ];
+
+        let session = [];
+        let health = 100;
+        let streak = 0;
+        let currentStage = 0;
+        let currentIndex = 0;
+
+        function init() {
+            session = pool.sort(() => 0.5 - Math.random()).slice(0, 30);
+            currentIndex = 0;
+            displayCurrentQuestion();
+            updateUI();
+        }
+
+        function displayCurrentQuestion() {
+            if (currentIndex >= session.length || health <= 0) {
+                showEndGame();
+                return;
+            }
+
+            const q = session[currentIndex];
+            document.getElementById('current-q-num').innerText = currentIndex + 1;
+            document.getElementById('q-category').innerText = q.cat;
+            document.getElementById('q-text').innerText = q.q;
+            document.getElementById('feedback-area').classList.add('hidden');
+            document.getElementById('next-btn').classList.add('hidden');
+
+            const optBox = document.getElementById('q-options');
+            optBox.innerHTML = '';
+            
+            const shuffledOpts = [...q.opts].sort(() => 0.5 - Math.random());
+            shuffledOpts.forEach(o => {
+                const btn = document.createElement('button');
+                btn.className = "option-btn";
+                btn.innerText = o;
+                btn.onclick = () => checkAnswer(o);
+                optBox.appendChild(btn);
+            });
+        }
+
+        function checkAnswer(choice) {
+            const q = session[currentIndex];
+            const isCorrect = choice === q.a;
+            
+            const feedback = document.getElementById('feedback-area');
+            const nextBtn = document.getElementById('next-btn');
+            
+            feedback.classList.remove('hidden');
+            nextBtn.classList.remove('hidden');
+            
+            // Disable all option buttons
+            const btns = document.querySelectorAll('.option-btn');
+            btns.forEach(b => {
+                b.disabled = true;
+                if (b.innerText === q.a) {
+                    b.style.borderColor = "#22c55e";
+                    b.style.color = "#22c55e";
+                } else if (b.innerText === choice && !isCorrect) {
+                    b.style.borderColor = "#ef4444";
+                    b.style.color = "#ef4444";
+                }
+            });
+
+            if (isCorrect) {
+                feedback.innerText = "SUCCESS: ENERGY HARVESTED";
+                feedback.className = "mt-6 p-4 rounded-xl text-center font-bold bg-blue-900/40 text-blue-400 border border-blue-500/50";
+                streak++;
+                health = Math.min(100, health + 10);
+                
+                if (streak >= 3) {
+                    streak = 0;
+                    evolvePet();
+                }
+            } else {
+                feedback.innerText = "CRITICAL ERROR: DAMAGE DETECTED";
+                feedback.className = "mt-6 p-4 rounded-xl text-center font-bold bg-red-900/40 text-red-400 border border-red-500/50";
+                streak = 0;
+                health -= 25;
+                triggerShake();
+            }
+
+            updateUI();
+        }
+
+        document.getElementById('next-btn').onclick = () => {
+            currentIndex++;
+            displayCurrentQuestion();
+        };
+
+        function evolvePet() {
+            if (currentStage < evolutionStages.length - 1) {
+                currentStage++;
+                const overlay = document.getElementById('evo-overlay');
+                document.getElementById('evo-form-name').innerText = evolutionStages[currentStage].name;
+                overlay.style.display = 'flex';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    updateUI();
+                }, 1500);
+            }
+        }
+
+        function updateUI() {
+            const healthFill = document.getElementById('health-fill');
+            healthFill.style.width = health + "%";
+            document.getElementById('health-text').innerText = health + "%";
+            
+            if (health <= 30) healthFill.className = "stat-fill bg-red-500";
+            else if (health <= 60) healthFill.className = "stat-fill bg-yellow-500";
+            else healthFill.className = "stat-fill bg-green-500";
+
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById(`streak-dot-${i}`);
+                dot.style.backgroundColor = streak >= i ? "#3b82f6" : "#334155";
+                if (streak >= i) dot.style.boxShadow = "0 0 8px #3b82f6";
+                else dot.style.boxShadow = "none";
+            }
+
+            document.getElementById('form-level').innerText = `Form ${currentStage + 1}/10`;
+
+            const stageData = evolutionStages[currentStage];
+            document.getElementById('pet-display').innerText = health > 0 ? stageData.emoji : "💀";
+            document.getElementById('pet-name').innerText = health > 0 ? stageData.name : "SYSTEM DEAD";
+            document.getElementById('pet-mood').innerText = health > 0 ? stageData.mood : "Critical failure. All subsystems offline.";
+        }
+
+        function triggerShake() {
+            const pet = document.getElementById('pet-display');
+            pet.classList.remove('bounce');
+            pet.classList.add('shake');
+            setTimeout(() => {
+                pet.classList.remove('shake');
+                if (health > 0) pet.classList.add('bounce');
+            }, 500);
+        }
+
+        function showEndGame() {
+            document.getElementById('question-container').classList.add('hidden');
+            const end = document.getElementById('final-screen');
+            end.classList.remove('hidden');
+            
+            const status = health <= 0 ? "FAILURE" : "SUCCESS";
+            document.getElementById('final-report').innerText = health <= 0 
+                ? "Your pet was destroyed by excessive mechanical errors. Review the core concepts and try again."
+                : `Synthesis complete! You achieved ${evolutionStages[currentStage].name} status. All mechanical systems optimized.`;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
