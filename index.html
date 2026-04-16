@@ -1,0 +1,877 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+// --- MASSIVE GAME DATA POOL (100 Concepts) ---
+// Structure: [Definition/Question, Term/CorrectAns, Wrong1, Wrong2, Wrong3, LearningOutcome, TypedPrompt]
+const rawDataPool = [
+  // 1-20: Water Distribution & Sources
+  ["The percentage of Earth's surface covered by water.", "Over 70%", "About 50%", "Nearly 90%", "Exactly 25%", "describe the distribution of water", "Explain why Earth is called the 'water planet' and list the major sources of water."],
+  ["The location holding the vast majority of Earth's FRESH water.", "Glaciers and icecaps", "Underground aquifers", "Rivers and lakes", "The atmosphere", "describe the distribution of water", "Where is most of Earth's freshwater located, and why is it difficult for humans to access?"],
+  ["Water that is found below the Earth's surface in spaces within rock and soil.", "Groundwater", "Surface water", "Glacial melt", "Distilled water", "identify ground water as a component", "Describe what groundwater is and how it contributes to the water cycle."],
+  ["A large, thick body of slowly moving ice.", "Glacier", "Iceberg", "Permafrost", "Tundra", "identify glaciers as a component of Earth's water", "What is a glacier, and how does it store water?"],
+  ["The continuous movement of water on, above, and below the surface of the Earth.", "Water cycle", "Tidal cycle", "Ocean current", "Erosion cycle", "describe the distribution of water", "Explain the main processes involved in the water cycle."],
+  ["The process of water turning from a liquid into a gas.", "Evaporation", "Condensation", "Precipitation", "Transpiration", "describe the processes of the water cycle", "Describe evaporation and its role in distributing water globally."],
+  ["The process where water vapor cools and turns back into liquid droplets.", "Condensation", "Evaporation", "Sublimation", "Deposition", "describe the processes of the water cycle", "How does condensation contribute to weather patterns and the water cycle?"],
+  ["Water falling from the atmosphere to the Earth (rain, snow, sleet).", "Precipitation", "Condensation", "Evaporation", "Runoff", "describe the processes of the water cycle", "Describe precipitation and list three different forms it can take."],
+  ["Water that flows over the ground surface rather than soaking in.", "Runoff", "Groundwater", "Aquifer", "Tide", "describe the processes of the water cycle", "What is runoff, and how does it interact with local stream systems?"],
+  ["A body of permeable rock that can contain or transmit groundwater.", "Aquifer", "Ocean basin", "Trench", "Moraine", "identify ground water as a component", "Explain what an aquifer is and why it is important for human water supply."],
+  ["The amount of salt dissolved in a body of water.", "Salinity", "Hardness", "Clarity", "Turbidity", "recognize that water contains dissolved materials", "Define salinity and explain how it differs between oceans and lakes."],
+  ["Water that contains more salt than freshwater but less than seawater.", "Brackish water", "Potable water", "Distilled water", "Hard water", "recognize that water contains dissolved materials", "Where might you naturally find brackish water, and what is it?"],
+  ["The total volume of water on Earth.", "Remains relatively constant", "Decreases every year", "Increases due to melting", "Doubles every century", "describe the distribution of water", "Explain why the total amount of water on Earth remains relatively constant over time."],
+  ["A major source of drinking water for many rural communities.", "Wells (Groundwater)", "Ocean water", "Glacial ice", "Rainwater catchments", "identify the significance of water supply", "Why do many communities rely on groundwater, and how is it accessed?"],
+  ["The ocean that contains the largest volume of saltwater on Earth.", "Pacific Ocean", "Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "describe the distribution of water", "Name the largest ocean on Earth and describe its significance to the global water supply."],
+  ["Water held in the atmosphere as a gas.", "Water vapor", "Fog", "Dew", "Mist", "describe the processes of the water cycle", "What is water vapor, and how does it affect global climate?"],
+  ["The release of water from plant leaves into the atmosphere.", "Transpiration", "Perspiration", "Evaporation", "Condensation", "describe the processes of the water cycle", "Explain the process of transpiration and how plants contribute to the water cycle."],
+  ["A large floating mass of ice detached from a glacier.", "Iceberg", "Ice shelf", "Pack ice", "Floe", "analyze factors affecting glaciers and icecaps", "What is an iceberg, and where do they come from?"],
+  ["The top level of the underground zone in which soil and rocks are completely saturated with water.", "Water table", "Aquifer ceiling", "Permeable layer", "Spring line", "identify ground water as a component", "Describe the water table and how droughts can affect it."],
+  ["Water that is safe for human consumption.", "Potable water", "Hard water", "Soft water", "Saline water", "identify factors used in determining if water is potable", "What makes water 'potable', and why is treating water necessary?"],
+
+  // 21-40: Water Quality, Testing, and Treatment
+  ["A physical characteristic used to test water quality, referring to how clear the water is.", "Clarity (Turbidity)", "Salinity", "Hardness", "pH", "describe tests of water quality", "Explain why clarity is an important factor when testing water quality."],
+  ["Water containing high levels of dissolved minerals, like calcium and magnesium.", "Hard water", "Soft water", "Heavy water", "Brackish water", "describe tests of water quality", "What causes 'hard water', and what are its physical characteristics?"],
+  ["A biological test for water quality often checks for the presence of these.", "Bacteria / Pathogens", "Dissolved oxygen", "Calcium ions", "Heavy metals", "describe tests of water quality", "Why do scientists perform biological tests on water intended for drinking?"],
+  ["A method for generating fresh water from salt water using heat to boil and condense the vapor.", "Distillation", "Reverse osmosis", "Filtration", "Chlorination", "describe methods for generating fresh water", "Describe the process of distillation to create fresh water."],
+  ["A desalination method that forces salt water through a fine membrane to remove salt.", "Reverse osmosis", "Evaporation", "Distillation", "Sedimentation", "describe methods for generating fresh water", "Explain how reverse osmosis works in water desalination."],
+  ["A measure of how acidic or basic water is.", "pH level", "Salinity", "Turbidity", "Hardness", "describe tests of water quality", "How does the pH level of water affect the living things within an aquatic ecosystem?"],
+  ["Living organisms, like certain insects or fish, whose presence indicates the health of a water system.", "Bio-indicators", "Pathogens", "Invasive species", "Plankton", "analyze relationships between water quality and living things", "What are bio-indicators, and how are they used to determine water quality?"],
+  ["A chemical often added to municipal water supplies to kill harmful bacteria.", "Chlorine", "Fluoride", "Calcium", "Nitrogen", "identify technologies that affect water quality", "Why is chlorine used in city water treatment systems?"],
+  ["The process of removing solid particles from water by letting them settle to the bottom.", "Sedimentation", "Aeration", "Distillation", "Filtration", "identify technologies that affect water quality", "Describe sedimentation and its role in a water treatment plant."],
+  ["The stage of water treatment where water passes through sand and gravel to remove small particles.", "Filtration", "Flocculation", "Sedimentation", "Disinfection", "identify technologies that affect water quality", "Explain how the filtration step works in municipal water treatment."],
+  ["Water that has been used in homes and industries and must be treated before release.", "Wastewater (Sewage)", "Runoff", "Potable water", "Brackish water", "analyze human water uses", "What is wastewater, and why must it be treated before returning to the environment?"],
+  ["The process of adding air to water to increase dissolved oxygen.", "Aeration", "Sedimentation", "Chlorination", "Distillation", "identify technologies that affect water quality", "Why is aeration an important step in wastewater treatment?"],
+  ["Nutrients often found in fertilizers that can cause water quality issues if they enter streams.", "Phosphates and Nitrates", "Calcium and Magnesium", "Sodium and Chloride", "Iron and Zinc", "analyze the effects of agriculture", "How do phosphates and nitrates affect water quality when they wash into lakes?"],
+  ["The amount of oxygen available in water for aquatic organisms to breathe.", "Dissolved Oxygen (DO)", "Ozone", "Aerobic capacity", "Oxidation level", "analyze relationships between water quality and living things", "Explain why dissolved oxygen is a critical measurement for aquatic ecosystem health."],
+  ["A rapid decrease in water quality caused by excess nutrients leading to oxygen depletion.", "Eutrophication", "Desalination", "Distillation", "Erosion", "analyze relationships between water quality and living things", "Describe the process of eutrophication and its effect on fish populations."],
+  ["A water quality issue where water becomes too salty for plants to grow, often due to irrigation.", "Soil Salinization", "Acidification", "Hardening", "Turbidity", "analyze human water uses", "How does excessive agricultural irrigation lead to soil salinization?"],
+  ["The microscopic solid particles suspended in water.", "Particulates", "Dissolved solids", "Solutes", "Bio-indicators", "recognize that water contains varying amounts of particulates", "What are particulates in a water sample, and how do they affect clarity?"],
+  ["A substance that dissolves in a solvent to form a solution (e.g., salt in water).", "Solute", "Solvent", "Particulate", "Precipitate", "recognize that water contains dissolved materials", "Define 'solute' and give an example of one found in ocean water."],
+  ["The liquid in which a solute is dissolved to form a solution (e.g., water).", "Solvent", "Solute", "Particulate", "Sediment", "recognize that water contains dissolved materials", "Why is water often called the 'universal solvent'?"],
+  ["Materials carried by a stream, including dissolved solids and physical dirt.", "Sediment load", "Bio-load", "Salinity index", "Stream profile", "investigate stream characteristics", "What makes up a stream's sediment load?"],
+
+  // 41-60: Landforms, Erosion, Streams, Oceans
+  ["The process of wearing away rocks and soil by wave action and water flow.", "Erosion", "Deposition", "Weathering", "Flocculation", "describe processes of erosion", "In your own words, describe how water causes erosion in a landscape."],
+  ["The process of water dropping or leaving behind the sediments it was carrying.", "Deposition", "Erosion", "Weathering", "Transpiration", "describe processes of deposition", "Explain the difference between erosion and deposition."],
+  ["The steepness of a stream's riverbed.", "Slope", "Flow rate", "Stream profile", "Meander", "investigate stream characteristics", "How does the slope of a stream affect its flow rate and erosion power?"],
+  ["The speed at which a volume of water moves through a stream.", "Flow rate", "Slope", "Tidal pull", "Current profile", "investigate stream characteristics", "Explain how scientists might measure the flow rate of a stream."],
+  ["The cross-sectional view of a stream, showing its depth and shape.", "Stream profile", "Stream slope", "Meander", "Delta", "investigate stream characteristics", "What does a stream profile tell us about the water moving through it?"],
+  ["A fan-shaped landform created by deposition at the mouth of a river.", "Delta", "Trench", "Continental shelf", "Meander", "describe processes of deposition", "How is a river delta formed?"],
+  ["A curve or loop in a slow-moving river.", "Meander", "Delta", "Trench", "Slope", "investigate stream characteristics", "Describe how erosion and deposition work together to create a river meander."],
+  ["The shallow area of the ocean floor extending outward from the edge of a continent.", "Continental shelf", "Ocean trench", "Abyssal plain", "Mid-ocean ridge", "describe development of ocean basins", "What is a continental shelf, and why is it important for marine life?"],
+  ["Deep, steep-sided canyons on the ocean floor caused by tectonic plates converging.", "Ocean trenches", "Continental shelves", "Abyssal plains", "Seamounts", "describe development of ocean basins", "Explain how ocean trenches are formed geographically."],
+  ["An underwater mountain range formed by plate tectonics.", "Mid-ocean ridge", "Continental shelf", "Trench", "Abyssal plain", "describe development of ocean basins", "Describe a mid-ocean ridge and how new ocean floor is created there."],
+  ["Large, flat areas of the deep ocean floor.", "Abyssal plain", "Continental slope", "Trench", "Shelf", "describe development of ocean basins", "What characterizes the abyssal plain of an ocean basin?"],
+  ["The system of rivers and lakes that carry water from a landmass to the ocean.", "Continental drainage system", "Ocean current system", "Glacial network", "Aquifer system", "describe continental drainage systems", "What is a continental drainage system?"],
+  ["A high point of land that determines the direction rivers will flow.", "Continental Divide", "Continental Shelf", "Abyssal Ridge", "Moraine", "describe continental drainage systems", "Explain the concept of a Continental Divide and its impact on water flow."],
+  ["Rhythmic movements of the ocean's surface caused by wind.", "Waves", "Tides", "Currents", "Tsunamis", "describe how waves are generated", "How are standard ocean waves generated?"],
+  ["The daily rise and fall of Earth's waters on its coastlines.", "Tides", "Waves", "Currents", "El Nino", "describe how tides are generated", "Explain what causes the ocean's tides."],
+  ["The gravitational pull of this celestial body is the primary cause of Earth's tides.", "The Moon", "The Sun", "Mars", "Jupiter", "describe how tides are generated", "How does the Moon's gravity affect Earth's oceans?"],
+  ["A tide just after a new or full moon, when there is the greatest difference between high and low water.", "Spring tide", "Neap tide", "Ebb tide", "Riptide", "describe how tides are generated", "Describe the difference between a spring tide and a neap tide."],
+  ["Piles of rock and debris left behind by a melting glacier.", "Moraines", "Deltas", "Trenches", "Meanders", "identify evidence of glacial action", "What is a moraine, and what does it tell us about past environments?"],
+  ["Scratches on rocks caused by glaciers dragging stones over them.", "Striations", "Meanders", "Shelves", "Depressions", "identify evidence of glacial action", "Explain how glacial striations form on bedrock."],
+  ["A large mass of ice that covers a large area of land, like in Antarctica.", "Polar ice sheet", "Iceberg", "Glacier", "Floe", "analyze factors affecting icecaps", "What factors affect the growth or shrinking of polar ice sheets? "],
+
+  // 61-80: Climate, Currents, Adaptations, Populations
+  ["Continuous, directed movements of ocean water generated by forces like wind and temperature.", "Ocean currents", "Tides", "Waves", "Ripples", "describe movement of ocean currents", "What causes ocean currents to flow globally?"],
+  ["A warm ocean current that flows from the Gulf of Mexico northward along the US coast.", "Gulf Stream", "Labrador Current", "El Nino", "La Nina", "impact of ocean currents on climates", "How does the Gulf Stream affect the climate of regions it flows past?"],
+  ["A cold ocean current flowing down from the Arctic along the eastern coast of Canada.", "Labrador Current", "Gulf Stream", "El Nino", "Kuroshio Current", "impact of ocean currents on climates", "Describe the Labrador Current and its effect on Canadian coastlines."],
+  ["A climate pattern describing the unusual warming of surface waters in the eastern tropical Pacific Ocean.", "El Niño", "La Niña", "Gulf Stream", "Tidal wave", "impact of ocean currents on climates", "Explain what El Niño is and how it alters global weather."],
+  ["Water's ability to hold onto heat, making oceans heat up and cool down slowly.", "High heat capacity", "Low heat capacity", "Salinity index", "Thermal density", "investigate linkages among landforms, water and climate", "Why do coastal cities often have milder climates than inland cities?"],
+  ["Physical or behavioral traits that help an organism survive in its environment.", "Adaptations", "Mutations", "Acclimations", "Instincts", "interpret examples of adaptations", "Provide an example of an adaptation that helps a fish survive in water."],
+  ["Organs that allow aquatic animals to extract dissolved oxygen from water.", "Gills", "Lungs", "Fins", "Scales", "interpret examples of adaptations", "Explain how gills function in aquatic environments."],
+  ["An internal gas-filled organ that helps many bony fish maintain buoyancy.", "Swim bladder", "Lateral line", "Gills", "Pectoral fin", "interpret examples of adaptations", "What is a swim bladder, and why is it important for fish?"],
+  ["A sensory organ in fish used to detect movement, vibration, and pressure gradients in water.", "Lateral line", "Swim bladder", "Dorsal fin", "Barbels", "interpret examples of adaptations", "Describe how the lateral line adaptation helps fish navigate."],
+  ["The ability of an organism to float or rise in a fluid.", "Buoyancy", "Salinity", "Density", "Turbidity", "interpret examples of adaptations", "How do some marine mammals, like whales, manage their buoyancy?"],
+  ["A rapid growth of microscopic algae or cyanobacteria in water.", "Algal bloom", "Eutrophication", "Plankton burst", "Kelp forest", "interpret examples of short-term change", "What conditions usually lead to an algal bloom in a lake?"],
+  ["A group of organisms of the same species living in a specific area.", "Population", "Community", "Ecosystem", "Biome", "investigate change in populations", "Define 'population' in the context of an aquatic ecosystem."],
+  ["The variety of different species of organisms living in a specific environment.", "Diversity of life", "Population density", "Carrying capacity", "Biomass", "analyze relationships between water quality and living things", "Why is a high diversity of life usually a sign of a healthy aquatic ecosystem?"],
+  ["A decline in fish populations due to catching fish faster than they can reproduce.", "Overfishing", "Eutrophication", "Acidification", "Algal bloom", "investigate change in populations", "Explain how overfishing impacted the historical cod stocks."],
+  ["Changes in populations that occur regularly based on the time of year (e.g., migration).", "Seasonal changes", "Long-term changes", "Short-term changes", "Permanent changes", "investigate change in populations", "Give an example of a seasonal change in a marine population."],
+  ["Changes in populations that take years or decades, often due to climate or sustained human impact.", "Long-term changes", "Seasonal changes", "Short-term changes", "Daily changes", "investigate change in populations", "Describe a factor that could cause a long-term change in a local fish population."],
+  ["Microscopic organisms that float in water and form the base of the aquatic food web.", "Plankton", "Nekton", "Benthos", "Kelp", "investigate life forms found in salt water", "Why are plankton essential to ocean ecosystems?"],
+  ["Animals without a backbone, like crabs and jellyfish, common in aquatic environments.", "Invertebrates", "Vertebrates", "Amphibians", "Mammals", "investigate life forms found in fresh water", "Name an aquatic invertebrate and describe one of its adaptations."],
+  ["The area where a river meets the sea, containing a mix of fresh and salt water.", "Estuary", "Delta", "Trench", "Abyssal plain", "investigate life forms found in salt water", "Why are estuaries considered highly productive environments for diverse life forms?"],
+  ["Organisms that live on or in the bottom of a body of water.", "Benthos", "Plankton", "Nekton", "Pelagic", "investigate life forms found in salt water", "Describe the benthic zone and give an example of an organism that lives there."],
+
+  // 81-100: Human Impacts, Technologies, and Research
+  ["The practice of cultivating soil, producing crops, and raising livestock.", "Agriculture", "Forestry", "Aquaculture", "Manufacturing", "analyze human water uses", "Explain how large-scale agriculture can negatively impact local stream water quality."],
+  ["The science or practice of planting, managing, and caring for forests.", "Forestry", "Agriculture", "Botany", "Landscaping", "analyze human water uses", "How can poor forestry practices (like clear-cutting) increase stream erosion?"],
+  ["Harmful substances introduced into the environment by human activity.", "Pollutants", "Nutrients", "Sediments", "Minerals", "identify pollutants in water systems", "Name two common pollutants found in groundwater near industrial areas."],
+  ["Chemicals used to promote plant growth, which can run off into water systems.", "Fertilizers", "Pesticides", "Herbicides", "Solvents", "analyze human water uses", "Why do fertilizers cause problems when they run off into ponds?"],
+  ["Substances used for destroying insects or other organisms harmful to cultivated plants.", "Pesticides", "Fertilizers", "Phosphates", "Nitrates", "identify pollutants in water systems", "Describe the potential danger of pesticides entering a local freshwater ecosystem."],
+  ["The removal of salt from seawater to make it usable for drinking and farming.", "Desalination", "Distillation", "Reverse osmosis", "Eutrophication", "identify alternatives for ensuring safe supplies", "What is desalination, and why is it an important technology for some countries?"],
+  ["The management of land, water, and resources within a specific drainage basin.", "Watershed management", "Forestry", "Aquaculture", "Urban planning", "describe aquatic monitoring", "Explain the goal of watershed management."],
+  ["The regular observation and testing of water bodies to track changes and health.", "Aquatic monitoring", "Desalination", "Water treatment", "Dredging", "describe aquatic monitoring", "Why is continuous aquatic monitoring necessary for environmental protection?"],
+  ["A facility where solid waste is disposed of by burying it.", "Landfill", "Treatment plant", "Reservoir", "Aquifer", "evaluate environmental costs", "How can a poorly designed landfill threaten local groundwater?"],
+  ["The artificial application of water to land to assist in the production of crops.", "Irrigation", "Desalination", "Aeration", "Filtration", "analyze human water uses", "Describe one benefit and one environmental cost of large-scale irrigation."],
+  ["Wastewater treatment that removes dissolved organic matter using biological processes.", "Secondary treatment", "Primary treatment", "Tertiary treatment", "Filtration", "evaluate alternatives for specific water quality issue", "What is the difference between primary and secondary wastewater treatment?"],
+  ["Advanced wastewater treatment that removes specific chemicals and nutrients.", "Tertiary treatment", "Primary treatment", "Secondary treatment", "Sedimentation", "evaluate alternatives for specific water quality issue", "Why might a city choose to invest in tertiary wastewater treatment?"],
+  ["The idea that humans should responsibly manage and protect the environment.", "Environmental Stewardship", "Industrialization", "Eutrophication", "Urbanization", "provide examples of problems that cannot be solved using science alone", "Explain what environmental stewardship means to you."],
+  ["A proposal to sell and move large amounts of water from one region to another.", "Water export", "Desalination", "Irrigation", "Watershed management", "evaluate alternatives for specific water quality issue", "What are the potential environmental arguments against exporting water resources?"],
+  ["A type of pollution coming from a single, identifiable source, like a factory pipe.", "Point-source pollution", "Non-point-source pollution", "Thermal pollution", "Air pollution", "identify pollutants in water systems", "Define point-source pollution and give an example."],
+  ["Pollution coming from widely distributed sources, like agricultural runoff across a county.", "Non-point-source pollution", "Point-source pollution", "Direct discharge", "Industrial waste", "identify pollutants in water systems", "Why is non-point-source pollution harder to control than point-source pollution?"],
+  ["An artificial lake used to store water for human use.", "Reservoir", "Aquifer", "Estuary", "Ocean basin", "analyze human water uses", "How does building a dam to create a reservoir impact the local aquatic ecosystem?"],
+  ["The farming of fish, crustaceans, mollusks, and aquatic plants.", "Aquaculture", "Agriculture", "Forestry", "Hydroponics", "analyze human water uses", "Describe a potential environmental benefit and a drawback of aquaculture."],
+  ["The use of scientific knowledge to solve practical problems, like cleaning water.", "Technology", "Hypothesis", "Stewardship", "Observation", "identify roles of science and technology", "Give an example of a technology developed specifically to improve water quality."],
+  ["A problem (like pollution behavior) that requires social, economic, and political action, not just science.", "Socio-scientific issue", "Technological limitation", "Mathematical error", "Chemical reaction", "provide examples of problems that cannot be solved using science alone", "Why isn't scientific knowledge alone enough to stop all water pollution?"]
+];
+
+// --- DATA PARSER ---
+const getParsedPool = () => {
+  return rawDataPool.map((item, index) => {
+    const [qOrDef, ansOrTerm, w1, w2, w3, outcome, typedPrompt] = item;
+    return {
+      id: index,
+      term: ansOrTerm,
+      definition: qOrDef,
+      w1, w2, w3,
+      outcome,
+      typedPrompt
+    };
+  });
+};
+
+// --- FORMAT GENERATORS ---
+const shuffleArray = (arr) => arr.sort(() => Math.random() - 0.5);
+
+const generateFormat = (baseItem, fullPool) => {
+  const formats = ['multiple-choice', 'typed'];
+  const type = formats[Math.floor(Math.random() * formats.length)];
+
+  if (type === 'typed') {
+    return {
+      id: baseItem.id,
+      type: 'typed',
+      learningOutcome: baseItem.outcome,
+      question: baseItem.typedPrompt,
+      correctTerm: baseItem.term,
+      correctDefinition: baseItem.definition
+    };
+  }
+
+  if (type === 'multiple-choice') {
+    return {
+      id: baseItem.id,
+      type: 'multiple-choice',
+      question: `Which of the following best describes: "${baseItem.definition}"?`,
+      options: shuffleArray([baseItem.term, baseItem.w1, baseItem.w2, baseItem.w3]),
+      answer: baseItem.term,
+      explanations: {
+        [baseItem.w1]: `${baseItem.w1} is incorrect. Think about the concepts of ${baseItem.outcome}.`,
+        [baseItem.w2]: `${baseItem.w2} is incorrect. Review the definition carefully.`,
+        [baseItem.w3]: `${baseItem.w3} is incorrect. This does not match the provided description.`
+      }
+    };
+  }
+};
+
+// --- AI GRADING UTILITY (GEMINI API) ---
+const callGeminiWithBackoff = async (prompt, systemInstruction) => {
+  const apiKey = "";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+  
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    systemInstruction: { parts: [{ text: systemInstruction }] },
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "OBJECT",
+        properties: {
+          isCorrect: { type: "BOOLEAN" },
+          feedback: { type: "STRING" }
+        }
+      }
+    }
+  };
+
+  let delay = 1000;
+  for (let i = 0; i < 6; i++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+      // Strip any markdown code blocks so JSON.parse doesn't fail
+      const cleanText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      return JSON.parse(cleanText);
+
+    } catch (e) {
+      if (i === 5) throw e;
+      await new Promise(r => setTimeout(r, delay));
+      delay *= 2;
+    }
+  }
+};
+
+// --- CHESS LOGIC UTILITIES ---
+const initialBoard = [
+  ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'],
+  ['p', 'p', 'p', 'p', 'p', 'p', 'p', 'p'],
+  [null, null, null, null, null, null, null, null],
+  [null, null, null, null, null, null, null, null],
+  [null, null, null, null, null, null, null, null],
+  [null, null, null, null, null, null, null, null],
+  ['P', 'P', 'P', 'P', 'P', 'P', 'P', 'P'],
+  ['R', 'N', 'B', 'Q', 'K', 'B', 'N', 'R'],
+];
+
+const pieceSymbols = { p: '♟\uFE0E', r: '♜\uFE0E', n: '♞\uFE0E', b: '♝\uFE0E', q: '♛\uFE0E', k: '♚\uFE0E' };
+
+const isWhite = (p) => p && p === p.toUpperCase();
+const isBlack = (p) => p && p === p.toLowerCase();
+const isEmpty = (p) => !p;
+const isEnemy = (p1, p2) => (isWhite(p1) && isBlack(p2)) || (isBlack(p1) && isWhite(p2));
+
+const getLegalMoves = (board, r, c) => {
+  const p = board[r][c];
+  if (!p) return [];
+  const moves = [];
+  const directions = {
+    'R': [[0, 1], [0, -1], [1, 0], [-1, 0]],
+    'B': [[1, 1], [1, -1], [-1, 1], [-1, -1]],
+    'Q': [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]],
+    'K': [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]],
+    'N': [[2, 1], [2, -1], [-2, 1], [-2, -1], [1, 2], [1, -2], [-1, 2], [-1, -2]]
+  };
+
+  const type = p.toUpperCase();
+
+  if (type === 'P') {
+    const dir = isWhite(p) ? -1 : 1;
+    const startRow = isWhite(p) ? 6 : 1;
+    
+    if (r + dir >= 0 && r + dir <= 7 && isEmpty(board[r + dir][c])) {
+      moves.push({ r: r + dir, c });
+      if (r === startRow && isEmpty(board[r + dir * 2][c])) {
+        moves.push({ r: r + dir * 2, c });
+      }
+    }
+    for (const dc of [-1, 1]) {
+      if (c + dc >= 0 && c + dc <= 7 && r + dir >= 0 && r + dir <= 7) {
+        const target = board[r + dir][c + dc];
+        if (target && isEnemy(p, target)) {
+          moves.push({ r: r + dir, c: c + dc });
+        }
+      }
+    }
+  } else if (directions[type]) {
+    const maxSteps = (type === 'K' || type === 'N') ? 1 : 7;
+    for (const [dr, dc] of directions[type]) {
+      for (let step = 1; step <= maxSteps; step++) {
+        const nr = r + dr * step;
+        const nc = c + dc * step;
+        if (nr < 0 || nr > 7 || nc < 0 || nc > 7) break;
+        
+        const target = board[nr][nc];
+        if (isEmpty(target)) {
+          moves.push({ r: nr, c: nc });
+        } else {
+          if (isEnemy(p, target)) moves.push({ r: nr, c: nc });
+          break;
+        }
+      }
+    }
+  }
+  return moves;
+};
+
+const pieceValues = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 1000 };
+
+const getMovesForColor = (board, isBlackTurn) => {
+  const moves = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c];
+      if (p && (isBlackTurn ? isBlack(p) : isWhite(p))) {
+        const legals = getLegalMoves(board, r, c);
+        for (const m of legals) {
+          moves.push({ from: { r, c }, to: m });
+        }
+      }
+    }
+  }
+  return moves;
+};
+
+const simMove = (b, from, to) => {
+  const nb = b.map(row => [...row]);
+  nb[to.r][to.c] = nb[from.r][from.c];
+  nb[from.r][from.c] = null;
+  return nb;
+};
+
+const evaluate = (b) => {
+  let blackK = false;
+  let whiteK = false;
+  let score = 0;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = b[r][c];
+      if (p) {
+        if (p === 'k') blackK = true;
+        if (p === 'K') whiteK = true;
+        let val = pieceValues[p.toLowerCase()] * 10;
+        if (r >= 3 && r <= 4 && c >= 3 && c <= 4) val += 0.5;
+        score += isBlack(p) ? val : -val;
+      }
+    }
+  }
+  if (!blackK) return -100000;
+  if (!whiteK) return 100000;
+  return score;
+};
+
+const alphaBeta = (b, depth, alpha, beta, isBlackTurn) => {
+  const ev = evaluate(b);
+  if (Math.abs(ev) > 50000 || depth === 0) return ev;
+
+  const moves = getMovesForColor(b, isBlackTurn);
+  if (moves.length === 0) return isBlackTurn ? -100000 : 100000;
+
+  if (isBlackTurn) {
+    let maxEval = -Infinity;
+    for (const m of moves) {
+      const nb = simMove(b, m.from, m.to);
+      const score = alphaBeta(nb, depth - 1, alpha, beta, false);
+      maxEval = Math.max(maxEval, score);
+      alpha = Math.max(alpha, score);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    let minEval = Infinity;
+    for (const m of moves) {
+      const nb = simMove(b, m.from, m.to);
+      const score = alphaBeta(nb, depth - 1, alpha, beta, true);
+      minEval = Math.min(minEval, score);
+      beta = Math.min(beta, score);
+      if (beta <= alpha) break;
+    }
+    return minEval;
+  }
+};
+
+export default function App() {
+  // Game States
+  const [board, setBoard] = useState(initialBoard);
+  const [phase, setPhase] = useState('setup'); // 'setup' | 'question' | 'player-move' | 'computer-move' | 'game-over' | 'victory'
+  const [difficulty, setDifficulty] = useState(null);
+  const [message, setMessage] = useState("Answer the question to unlock your turn!");
+  
+  // Interaction States
+  const [selectedSquare, setSelectedSquare] = useState(null);
+  const [legalMoves, setLegalMoves] = useState([]);
+  
+  // Question States (Adaptive Queue + 20 Question Target)
+  const [questionQueue, setQuestionQueue] = useState([]);
+  const [completedCount, setCompletedCount] = useState(0);
+  const lastWasCorrectRef = useRef(null);
+  
+  const [feedbackState, setFeedbackState] = useState(null); // { text: string, type: 'error' | 'success' }
+  const [incorrectSelection, setIncorrectSelection] = useState(null); 
+  
+  // Typed Question States
+  const [typedInput, setTypedInput] = useState("");
+  const [isMarking, setIsMarking] = useState(false);
+
+  // Initialize Session: Pick 20 questions, generate random formats
+  const initSession = () => {
+    const fullParsedPool = getParsedPool();
+    const sessionItems = shuffleArray([...fullParsedPool]).slice(0, 20);
+    const initialQueue = sessionItems.map(item => generateFormat(item, fullParsedPool));
+    
+    setQuestionQueue(initialQueue);
+    setCompletedCount(0);
+    setBoard(initialBoard);
+    setPhase('setup');
+    setDifficulty(null);
+    setMessage("Answer the question to unlock your turn!");
+    setSelectedSquare(null);
+    setLegalMoves([]);
+    setFeedbackState(null);
+    setIncorrectSelection(null);
+    setTypedInput("");
+    lastWasCorrectRef.current = null;
+  };
+
+  useEffect(() => {
+    initSession();
+  }, []);
+
+  const currentQuestion = questionQueue[0];
+
+  const getNextQuestion = useCallback(() => {
+    setQuestionQueue(prev => {
+      if (prev.length <= 1) return []; // Empty queue triggers victory if 20 reached
+      
+      const current = prev[0];
+      const rest = prev.slice(1);
+      
+      if (lastWasCorrectRef.current) {
+        // Mastered: It leaves the queue entirely.
+        return rest;
+      } else {
+        // Needs Review: regenerate format to keep it fresh, insert it 2 spots away
+        const fullParsedPool = getParsedPool();
+        const baseItem = fullParsedPool.find(i => i.id === current.id) || fullParsedPool[0];
+        const regenerated = generateFormat(baseItem, fullParsedPool);
+        
+        const insertIndex = Math.min(2, rest.length);
+        rest.splice(insertIndex, 0, regenerated);
+        return rest;
+      }
+    });
+    lastWasCorrectRef.current = null;
+  }, []);
+
+  // Check Win Condition
+  useEffect(() => {
+    if (completedCount >= 20 && phase !== 'victory' && phase !== 'setup') {
+      setPhase('victory');
+    }
+  }, [completedCount, phase]);
+
+  // Reset states when question changes
+  useEffect(() => {
+    setTypedInput("");
+    // We only clear success feedback on question change. Error feedback is cleared manually via "Next Question" button.
+    if (feedbackState?.type === 'success') {
+      setFeedbackState(null);
+    }
+  }, [currentQuestion]);
+
+  const handleAnswerClick = (option) => {
+    if (phase !== 'question' || currentQuestion.type !== 'multiple-choice') return;
+
+    if (option === currentQuestion.answer) {
+      setMessage("Correct! Make your move on the board.");
+      lastWasCorrectRef.current = true;
+      setCompletedCount(c => c + 1);
+      setFeedbackState(null);
+      setPhase('player-move');
+    } else {
+      setMessage("Incorrect! Review the feedback below.");
+      lastWasCorrectRef.current = false;
+      const explanation = currentQuestion.explanations?.[option] || "That answer is not correct based on the concepts we covered.";
+      setFeedbackState({ text: explanation, type: 'error' });
+      setIncorrectSelection(option);
+    }
+  };
+
+  const handleTypedSubmit = async () => {
+    if (!typedInput.trim() || isMarking) return;
+    setIsMarking(true);
+    setMessage("AI is evaluating your answer...");
+    
+    try {
+      const prompt = `Question: ${currentQuestion.question}\nExpected Concept: ${currentQuestion.correctTerm} - ${currentQuestion.correctDefinition}\nStudent Answer: ${typedInput}`;
+      
+      const sysInfo = `You are a strict but fair science teacher evaluating a student's answer based on the learning outcome: "${currentQuestion.learningOutcome}". 
+      Respond strictly in JSON format: { "isCorrect": boolean, "feedback": string }. 
+      
+      CRITICAL RULE: If the student does not answer EVERY part of the question correctly and completely, you MUST mark it as incorrect (isCorrect: false). Partial answers are wrong.
+      
+      If correct, explain explicitly why it is correct AND provide tips on how to improve the answer (e.g., using key science words that were missing, or making it more concise). 
+      If incorrect, DO NOT reveal the correct answer. Instead, provide a Socratic hint or a guiding question that nudges the student toward the right concept so they can figure it out when they try again later. Point out which parts of the question they failed to answer.`;
+
+      const result = await callGeminiWithBackoff(prompt, sysInfo);
+
+      if (result.isCorrect) {
+        setMessage("Correct! Read the AI feedback on how to improve, then make your move.");
+        lastWasCorrectRef.current = true;
+        setCompletedCount(c => c + 1);
+        setFeedbackState({ text: result.feedback, type: 'success' });
+        setPhase('player-move'); // Allows player to move while reading success feedback
+      } else {
+        setMessage("Review the feedback below.");
+        lastWasCorrectRef.current = false;
+        setFeedbackState({ 
+          text: result.feedback, 
+          type: 'error'
+        });
+        setIncorrectSelection(`Your answer: "${typedInput}"`);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("Review the feedback below.");
+      lastWasCorrectRef.current = false;
+      setFeedbackState({ 
+        text: "Error evaluating answer. The AI could not process your response at this time. Please review your answer and click Next Question to continue.", 
+        type: 'error'
+      });
+      setIncorrectSelection(`Your answer: "${typedInput}"`);
+    } finally {
+      setIsMarking(false);
+    }
+  };
+
+  const handleNextQuestionAfterIncorrect = () => {
+    setFeedbackState(null);
+    setIncorrectSelection(null);
+    setMessage("Computer is taking its turn...");
+    setPhase('computer-move'); 
+  };
+
+  const executeMove = (from, to, currentBoard) => {
+    const newBoard = currentBoard.map(row => [...row]);
+    const captured = newBoard[to.r][to.c];
+    newBoard[to.r][to.c] = newBoard[from.r][from.c];
+    newBoard[from.r][from.c] = null;
+    return { newBoard, captured };
+  };
+
+  const handleSquareClick = (r, c) => {
+    if (phase !== 'player-move') return;
+
+    const piece = board[r][c];
+
+    if (selectedSquare) {
+      const isLegal = legalMoves.some(m => m.r === r && m.c === c);
+      if (isLegal) {
+        const { newBoard, captured } = executeMove(selectedSquare, { r, c }, board);
+        setBoard(newBoard);
+        setSelectedSquare(null);
+        setLegalMoves([]);
+
+        if (captured === 'k') {
+          setMessage("Checkmate! You captured the Black King! You win!");
+          setPhase('game-over');
+        } else {
+          setMessage("Move recorded. Computer is thinking...");
+          setPhase('computer-move');
+        }
+        return;
+      }
+    }
+
+    if (isWhite(piece)) {
+      setSelectedSquare({ r, c });
+      setLegalMoves(getLegalMoves(board, r, c));
+    } else {
+      setSelectedSquare(null);
+      setLegalMoves([]);
+    }
+  };
+
+  // Computer AI Turn
+  useEffect(() => {
+    if (phase === 'computer-move') {
+      const timer = setTimeout(() => {
+        const possibleMoves = getMovesForColor(board, true);
+
+        if (possibleMoves.length > 0) {
+          let bestMove = null;
+
+          if (difficulty === 'beginner') {
+            bestMove = shuffleArray(possibleMoves)[0];
+          } else if (difficulty === 'intermediate') {
+            let bestScore = -Infinity;
+            let bestMoves = [];
+            for (const m of possibleMoves) {
+              const target = board[m.to.r][m.to.c];
+              const score = (target ? pieceValues[target.toLowerCase()] * 10 : 0) + Math.random();
+              if (score > bestScore) { bestScore = score; bestMoves = [m]; }
+              else if (score === bestScore) { bestMoves.push(m); }
+            }
+            bestMove = shuffleArray(bestMoves)[0];
+          } else if (difficulty === 'hard') {
+            let bestScore = -Infinity;
+            let bestMoves = [];
+            for (const m of possibleMoves) {
+              const nb = simMove(board, m.from, m.to);
+              const score = alphaBeta(nb, 1, -Infinity, Infinity, false) + Math.random() * 0.1;
+              if (score > bestScore) { bestScore = score; bestMoves = [m]; }
+              else if (score === bestScore) { bestMoves.push(m); }
+            }
+            bestMove = shuffleArray(bestMoves)[0];
+          } else if (difficulty === 'hell') {
+            let bestScore = -Infinity;
+            let bestMoves = [];
+            for (const m of possibleMoves) {
+              const nb = simMove(board, m.from, m.to);
+              const score = alphaBeta(nb, 3, -Infinity, Infinity, false) + Math.random() * 0.1;
+              if (score > bestScore) { bestScore = score; bestMoves = [m]; }
+              else if (score === bestScore) { bestMoves.push(m); }
+            }
+            bestMove = shuffleArray(bestMoves)[0];
+          }
+
+          const { newBoard, captured } = executeMove(bestMove.from, bestMove.to, board);
+          setBoard(newBoard);
+
+          if (captured === 'K') {
+            setMessage("Game Over! The computer captured your King.");
+            setPhase('game-over');
+          } else {
+            setMessage("Computer made its move. Answer the next question!");
+            getNextQuestion();
+            // Don't set phase to question if we hit 20
+            if (completedCount < 20) {
+              setPhase('question');
+            }
+          }
+        } else {
+          setMessage("Game Over! Black has no valid moves. You win!");
+          setPhase('game-over');
+        }
+      }, 1000); 
+
+      return () => clearTimeout(timer);
+    }
+  }, [phase, board, getNextQuestion, difficulty, completedCount]);
+
+  if (phase === 'setup') {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans text-slate-100">
+        <div className="bg-slate-800 p-8 rounded-2xl shadow-2xl border border-slate-700 text-center max-w-lg w-full">
+          <h1 className="text-3xl md:text-4xl font-bold text-cyan-400 mb-2">Aquatic Systems Chess</h1>
+          <p className="text-slate-400 mb-8">Review 20 Questions • Select Computer Difficulty</p>
+          <div className="flex flex-col gap-4">
+            <button onClick={() => { setDifficulty('beginner'); setPhase('question'); }} className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors">Beginner</button>
+            <button onClick={() => { setDifficulty('intermediate'); setPhase('question'); }} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors">Intermediate</button>
+            <button onClick={() => { setDifficulty('hard'); setPhase('question'); }} className="bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors">Hard</button>
+            <button onClick={() => { setDifficulty('hell'); setPhase('question'); }} className="bg-red-700 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-colors shadow-[0_0_15px_rgba(220,38,38,0.5)]">Hell</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'victory') {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-slate-100">
+        <div className="bg-slate-800 p-12 rounded-2xl shadow-2xl border border-green-500 text-center max-w-2xl w-full">
+          <span className="text-7xl mb-6 block">🏆</span>
+          <h1 className="text-4xl md:text-5xl font-bold text-green-400 mb-4">Unit Mastered!</h1>
+          <p className="text-xl text-slate-300 mb-8">You successfully completed all 20 Aquatic Systems challenges.</p>
+          <button onClick={initSession} className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 px-10 rounded-full text-xl transition-colors shadow-lg">
+            Play Another Round
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans p-4 md:p-8 flex flex-col">
+      {/* Header */}
+      <header className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-slate-700 gap-4">
+        <div>
+          <h1 className="text-2xl md:text-4xl font-bold text-cyan-400">Aquatic Systems Chess</h1>
+          <div className="flex flex-col md:flex-row md:items-center gap-3 mt-2">
+            <span className="bg-cyan-900 text-cyan-300 text-xs px-3 py-1 rounded-full font-semibold border border-cyan-700 w-max shadow-sm">
+              Progress: {completedCount} / 20 Mastered
+            </span>
+            <p className="text-slate-400 text-sm">Beat the computer by answering correctly!</p>
+          </div>
+        </div>
+        <button 
+          onClick={initSession}
+          className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+        >
+          Restart Game
+        </button>
+      </header>
+
+      {/* Main Content: Two Windows */}
+      <main className="flex-grow flex flex-col lg:flex-row gap-8 max-w-7xl mx-auto w-full">
+        
+        {/* Left Window: Question Panel */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-4">
+          
+          {/* Status Message */}
+          <div className={`p-4 rounded-xl border-2 font-semibold text-lg text-center shadow-lg transition-colors duration-300
+            ${phase === 'question' && feedbackState?.type !== 'error' ? 'bg-blue-900/50 border-blue-500 text-blue-200' : ''}
+            ${feedbackState?.type === 'error' ? 'bg-red-900/30 border-red-500 text-red-200' : ''}
+            ${phase === 'player-move' && feedbackState?.type !== 'error' ? 'bg-green-900/50 border-green-500 text-green-200' : ''}
+            ${phase === 'computer-move' ? 'bg-amber-900/50 border-amber-500 text-amber-200' : ''}
+            ${phase === 'game-over' ? 'bg-purple-900/50 border-purple-500 text-purple-200' : ''}
+          `}>
+            {message}
+          </div>
+
+          {/* Question Box */}
+          <div className="bg-slate-800 rounded-xl p-6 shadow-xl border border-slate-700 flex-grow flex flex-col relative overflow-hidden">
+            {currentQuestion ? (
+              <div className="flex flex-col h-full animate-fade-in">
+                
+                {/* Question Header */}
+                {(phase === 'question' || phase === 'player-move') && (
+                  <>
+                    <div className="flex justify-between items-center mb-2">
+                       <span className="text-cyan-500 font-bold uppercase text-xs tracking-wider">
+                         Question {completedCount + (phase==='player-move'?0:1)} {currentQuestion.type === 'typed' ? '(Written)' : '(Multiple Choice)'}
+                       </span>
+                    </div>
+                    <h2 className="text-xl md:text-2xl font-medium mb-6 leading-snug">
+                      {currentQuestion.prompt || currentQuestion.question}
+                    </h2>
+                  </>
+                )}
+                
+                {/* Error Feedback Display */}
+                {feedbackState?.type === 'error' ? (
+                  <div className="flex flex-col h-full mt-auto">
+                    {incorrectSelection && (
+                      <div className="flex flex-col gap-3 mb-4 mt-auto">
+                        <div className="bg-slate-700/50 text-left p-4 rounded-lg border border-red-500 shadow-md text-red-200 cursor-default">
+                          <span className="font-bold text-red-400 mr-2">✗</span> {incorrectSelection}
+                        </div>
+                      </div>
+                    )}
+                    <div className="mt-auto flex flex-col items-center animate-fade-in bg-slate-700 p-6 rounded-lg border border-red-500/50">
+                      <div className="w-full text-left mb-6">
+                        <p className="text-slate-200 text-lg leading-relaxed">{feedbackState.text}</p>
+                      </div>
+                      <button
+                        onClick={handleNextQuestionAfterIncorrect}
+                        className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded-full text-lg transition-colors shadow-lg w-full"
+                      >
+                        Next Question
+                      </button>
+                    </div>
+                  </div>
+
+                /* Success Feedback Display (For Typed AI Improvements) */
+                ) : feedbackState?.type === 'success' ? (
+                  <div className="flex flex-col h-full mt-auto animate-fade-in">
+                     <div className="bg-slate-700/50 text-left p-4 rounded-lg border border-green-500 shadow-md text-green-200 cursor-default mb-4">
+                        <span className="font-bold text-green-400 mr-2">✓</span> {typedInput}
+                      </div>
+                      <div className="mt-auto flex flex-col gap-3 animate-fade-in bg-slate-700 p-6 rounded-lg border border-cyan-500/50">
+                        <p className="text-slate-200 text-md leading-relaxed">{feedbackState.text}</p>
+                        <p className="text-slate-400 text-sm italic mt-2">Make your move on the board when ready.</p>
+                      </div>
+                  </div>
+
+                /* Standard Typed UI */
+                ) : currentQuestion.type === 'typed' && phase === 'question' ? (
+                  <div className="flex flex-col h-full mt-auto">
+                    <textarea
+                      value={typedInput}
+                      onChange={(e) => setTypedInput(e.target.value)}
+                      placeholder="Type your detailed answer here..."
+                      className="w-full h-40 p-4 rounded-lg bg-slate-700 text-slate-100 border border-slate-600 focus:border-cyan-400 focus:outline-none resize-none shadow-inner text-lg"
+                      disabled={isMarking}
+                    />
+                    <button
+                      onClick={handleTypedSubmit}
+                      disabled={isMarking || !typedInput.trim()}
+                      className={`mt-4 w-full font-bold py-3 px-8 rounded-full text-lg transition-colors shadow-lg ${
+                        isMarking || !typedInput.trim() 
+                          ? 'bg-slate-600 text-slate-400 cursor-not-allowed' 
+                          : 'bg-cyan-600 hover:bg-cyan-500 text-white'
+                      }`}
+                    >
+                      {isMarking ? 'Evaluating...' : 'Submit Answer'}
+                    </button>
+                  </div>
+
+                /* Standard Multiple Choice UI */
+                ) : currentQuestion.type === 'multiple-choice' && phase === 'question' ? (
+                  <div className="flex flex-col gap-3 mt-auto">
+                    {currentQuestion.options.map((opt, i) => (
+                      <button
+                        key={i}
+                        onClick={() => handleAnswerClick(opt)}
+                        className="bg-slate-700 hover:bg-cyan-600 text-left p-4 rounded-lg transition-all duration-200 shadow-md hover:shadow-cyan-900 border border-slate-600 hover:border-cyan-400"
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+
+                /* Placeholder for when it's just a player's move with no feedback, or computer's move */
+                ) : (
+                   <div className="flex flex-col items-center justify-center h-full text-center opacity-50 mt-auto pt-10">
+                    {phase === 'player-move' && !feedbackState && (
+                      <>
+                        <span className="text-6xl mb-4 text-green-400">♔</span>
+                        <p className="text-xl">Your turn! Make a move on the board.</p>
+                      </>
+                    )}
+                    {phase === 'computer-move' && (
+                      <>
+                        <span className="text-6xl mb-4 animate-pulse text-amber-400">♚</span>
+                        <p className="text-xl">Waiting for computer...</p>
+                      </>
+                    )}
+                    {phase === 'game-over' && (
+                      <p className="text-2xl font-bold">Game Over</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Right Window: Chess Board */}
+        <div className="w-full lg:w-2/3 flex items-center justify-center">
+          <div className="bg-slate-800 p-4 rounded-xl shadow-2xl border border-slate-700">
+            <div className="grid grid-cols-8 grid-rows-8 border-4 border-slate-900 w-[90vw] max-w-[500px] h-[90vw] max-h-[500px]">
+              {board.map((row, rIndex) => 
+                row.map((piece, cIndex) => {
+                  const isLightSquare = (rIndex + cIndex) % 2 === 0;
+                  const isSelected = selectedSquare?.r === rIndex && selectedSquare?.c === cIndex;
+                  const isLegalMove = legalMoves.some(m => m.r === rIndex && m.c === cIndex);
+                  
+                  // Determine square background color
+                  let bgColor = isLightSquare ? 'bg-[#ebecd0]' : 'bg-[#779556]';
+                  if (isSelected) bgColor = 'bg-yellow-400/80';
+                  
+                  return (
+                    <div 
+                      key={`${rIndex}-${cIndex}`}
+                      onClick={() => handleSquareClick(rIndex, cIndex)}
+                      className={`${bgColor} relative flex items-center justify-center cursor-pointer transition-colors duration-150`}
+                    >
+                      {/* Legal Move Indicator (Dot) */}
+                      {isLegalMove && !piece && (
+                        <div className="absolute w-1/3 h-1/3 bg-black/20 rounded-full" />
+                      )}
+                      {isLegalMove && piece && (
+                        <div className="absolute w-full h-full border-[6px] border-black/20 rounded-full" />
+                      )}
+                      
+                      {/* Chess Piece */}
+                      {piece && (
+                        <span className={`text-4xl md:text-5xl select-none filter drop-shadow-md cursor-grab active:cursor-grabbing
+                          ${isWhite(piece) ? 'text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]' : 'text-black drop-shadow-[0_1px_1px_rgba(255,255,255,0.4)]'}
+                        `}>
+                          {pieceSymbols[piece.toLowerCase()]}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            
+            {/* Player Legends */}
+            <div className="flex justify-between mt-4 font-mono text-sm text-slate-400 px-2">
+              <span>You (White) ♙</span>
+              <span>Computer (Black) ♟</span>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      {/* Animations */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: scale(0.98); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out forwards;
+        }
+      `}} />
+    </div>
+  );
+}
